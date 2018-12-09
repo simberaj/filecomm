@@ -12,11 +12,17 @@ import common
 class CLI(cmd.Cmd):
     intro = 'filecomm client ready'
     prompt = '> '
-    
-    def __init__(self, conn, *args, **kwargs):
+
+    def __init__(self, conn, workdir, *args, **kwargs):
         self.conn = conn
+        if not os.path.isabs(workdir):
+            workdir = os.path.normpath(os.path.join(os.getcwd(), workdir))
+        self.workdir = workdir
         super().__init__(*args, **kwargs)
-    
+
+    def preloop(self):
+        self.intro = 'filecomm client ready, working from ' + self.workdir
+
     def do_get(self, path):
         '''Get a path-specified file from server.'''
         try:
@@ -33,7 +39,7 @@ class CLI(cmd.Cmd):
             print(totsize, 'bytes written to', path)
         else:
             print(resp.status, resp.reason)
-    
+
     def do_put(self, path):
         '''Send specified file to server.'''
         try:
@@ -43,18 +49,19 @@ class CLI(cmd.Cmd):
         except (FileNotFoundError, ConnectionError, http.client.HTTPException) as message:
             print(message.__class__.__name__, message)
             return
-    
+
     def do_exit(self, arg):
         '''Terminate the connection and exit the client.'''
         self.conn.close()
         return True
-        
+
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('host', help='host server IP address')
+parser.add_argument('workdir', help='working directory, default: current', default='.')
 
 
 if __name__ == '__main__':
     args = parser.parse_args()
     conn = http.client.HTTPConnection(args.host, common.PORT, timeout=common.TIMEOUT)
-    CLI(conn).cmdloop()
+    CLI(conn, args.workdir).cmdloop()
